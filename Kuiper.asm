@@ -14,51 +14,79 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# -Milestone 1/2/3 (choose the one that applies)
+# -Milestone 1/2/3 (choose the one thatapplies)
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
-# 1. (fill in the feature, if any)# 2. (fill in the feature, if any)
+# 1. (fillin the feature, if any)# 2. (fill in the feature, if any)
 # 3. (fill in the feature, if any)# ... (add more if necessary)
 #
 # Link to video demonstration for final submission:
 # -(insert YouTube / MyMedia / other URL here). Make sure we can view it!
 #
 # Are you OK with us sharing the video with people outside course staff?
-# -yes / no/ yes, and please share this project github link as well!
+# -yes / no/ yes, and please share this project githublink as well!
 #
 # Any additional information that the TA needs to know:
 # -(write here, if any)
 ######################################################################
 
 # DECLARING CONSTANTS
+
+#Addresses
 .eqv KEYBOARD_ADDRESS 0xffff0000
-
-.eqv RESET_ADDRESS 0x10008000
-
+.eqv RESET_ADDRESS 0x10009d3c
+.eqv BASE_ADDRESS 0x10008000
+.eqv TOP_ADDRESS 0x10007d00
+.eqv BOTTOM_ADDRESS 0x1000A080
 # Movement Related
-.eqv BITMAP_W_LIMIT 0x10006334
-.eqv BITMAP_S_LIMIT 0x10007fcc
-.eqv BITMAP_A_REMAINDER 76
-.eqv BITMAP_D_REMAINDER 52
+.eqv BITMAP_W_LIMIT 0x10008070
+.eqv BITMAP_S_LIMIT 0x10009d08
+.eqv BITMAP_A_REMAINDER 8
+.eqv BITMAP_D_REMAINDER 112
 
-.eqv BOOSTER_BITMAP_W_LIMIT 0x100063b0
-.eqv BOOSTER_BITMAP_S_LIMIT 0x10007f50
-.eqv BOOSTER_BITMAP_A_REMAINDER 80
-.eqv BOOSTER_BITMAP_D_REMAINDER 48
+.eqv BOOSTER_BITMAP_W_LIMIT 0x100080ec
+.eqv BOOSTER_BITMAP_S_LIMIT 0x10009e8c
+.eqv BOOSTER_BITMAP_A_REMAINDER 12
+.eqv BOOSTER_BITMAP_D_REMAINDER 108
 
-.eqv WIDTH 128
+.eqv ROW 128
+.eqv COLUMN 4
 
-.eqv START_REFRESH_RATE 40
+#Randomness
+.eqv X_RANDOMNESS_THRESHOLD 30
+.eqv Y_RANDOMNESS_THRESHOLD 128
 
-# Colors
+#Game constants
+.eqv INIT_REFRESH_RATE 50
+.eqv ASTEROID_COUNT 10 #changeable
+.eqv ASTEROID_TYPE_COUNT 2
+
+# Colours
 .eqv SHIP_COLOUR 0x7daffa # light blue
 .eqv BLACK 0x000000 # for redrawing
 .eqv WHITE 0xffffff # for background
 
+# Basic Asteroid Colours
+.eqv LIGHT_GRAY, 0x9e9e9e
+.eqv GRAY, 0x757575
+
+# Complex Asteroid Colours
+.eqv LIGHT_BROWN, 0xbcaaa4
+.eqv BROWN, 0x8d6e63
+
+# Colours for 'GAME OVER' screen
+.eqv YELLOW 0xfdffbc
+.eqv PEACH 0xffeebb 
+.eqv SALMON 0xffdcb8
+.eqv PINK 0xffc1b6
+
 .data
-	SHIP_ADDRESS: .word 0x10008000
-	OBSTACLE_ADDRESSES: .word 0:3
+	REFRESH_RATE: INIT_REFRESH_RATE
+	SHIP_ADDRESS: .word RESET_ADDRESS
+	ASTEROIDS: .word 0:ASTEROID_COUNT
+    	ASTEROID_TYPES: .word 0:ASTEROID_COUNT
+   	ASTEROID_COLORS: .word 0:2
 	BOOSTER_FLAG: .word 0
 	LAST_KEYBOARD_INPUT: .word 0
 
@@ -75,15 +103,28 @@ SETUP:
 	lw, $t0, 0($t0)
 	li $t1, SHIP_COLOUR
 	jal DRAW_SHIP_INIT
-	j main
+	
+    	li $t9, 0 # counter
+    	la $t8, ASTEROIDS
+    	la $t7, ASTEROID_TYPES
+	j GENERATE_ASTEROIDS
 		
 # acts as main refresh loop
 main:
 	# generate delay
+	la $t1, REFRESH_RATE
+	lw $t1, 0($t1)
 	li $v0, 32
-	li $a0, 40
+	move $a0, $t1
 	syscall
-	
+    
+    	li $t9, 0 # counter
+    	la $t8, ASTEROIDS
+    	la $t7, ASTEROID_TYPES
+	j UPDATE_ASTEROIDS
+
+    
+CHECK_INPUT:
 	# check for keyboard input and branch accordingly
 	li $t0, KEYBOARD_ADDRESS
 	lw $t1, 0($t0)
@@ -98,134 +139,308 @@ main:
 
 # used to draw the whole ship initially
 DRAW_SHIP_INIT:
-	sw $t1, 7484($t0)
-	sw $t1, 7488($t0)
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
 	
-	sw $t1, 7608($t0)
-	sw $t1, 7612($t0)
-	sw $t1, 7616($t0)
-	sw $t1, 7620($t0)
+	sw $t1, 124($t0)
+	sw $t1, 128($t0)
+	sw $t1, 132($t0)
+	sw $t1, 136($t0)
 
-	sw $t1, 7732($t0)
-	sw $t1, 7736($t0)
-	sw $t1, 7740($t0)
-	sw $t1, 7744($t0)
-	sw $t1, 7748($t0)
-	sw $t1, 7752($t0)
+	sw $t1, 248($t0)
+	sw $t1, 252($t0)
+	sw $t1, 256($t0)
+	sw $t1, 260($t0)
+	sw $t1, 264($t0)
+	sw $t1, 268($t0)
 	
-	sw $t1, 7860($t0)
-	sw $t1, 7864($t0)
-	sw $t1, 7868($t0)
-	sw $t1, 7872($t0)
-	sw $t1, 7876($t0)
-	sw $t1, 7880($t0)
+	sw $t1, 376($t0)
+	sw $t1, 380($t0)
+	sw $t1, 384($t0)
+	sw $t1, 388($t0)
+	sw $t1, 392($t0)
+	sw $t1, 396($t0)
 	
-	sw $t1, 7988($t0)
-	sw $t1, 7992($t0)
-	sw $t1, 8004($t0)
-	sw $t1, 8008($t0)
+	sw $t1, 504($t0)
+	sw $t1, 508($t0)
+	sw $t1, 520($t0)
+	sw $t1, 524($t0)
 	
-	sw $t1, 8116($t0)
-	sw $t1, 8136($t0)
+	sw $t1, 632($t0)
+	sw $t1, 652($t0)
 	
 	jr $ra
+  
+# used to draw basic asteroid (plus/cross design, duo-coloured)
+DRAW_BASIC_ASTEROID:
+	sw $t1, 0($t0)
+    	sw $t2, -4($t0)
+    	sw $t2, 4($t0)
+    	sw $t2, -128($t0)
+    	sw $t2, 128($t0)
+    
+    	jr $ra
+    
+# used to draw larger, more complex asteroid (diagonally orientated, single coloured)
+DRAW_COMPLEX_ASTEROID:
+    	sw $t1, 0($t0)
+    	sw $t2, -4($t0)
+    	sw $t2, 4($t0)
+    	sw $t2, -128($t0)
+    	sw $t1, -132($t0)
+    	sw $t2, 128($t0)
+    	sw $t1, 132($t0)
+    
+    	jr $ra
 
 # draws ship vertical border
 UPDATE_SHIP_WS_HELPER:
-	sw $t1, 7868($t0)
-	sw $t1, 7872($t0)
+	sw $t1, 384($t0)
+	sw $t1, 388($t0)
 	
-	sw $t1, 7992($t0)
-	sw $t1, 8004($t0)
+	sw $t1, 508($t0)
+	sw $t1, 520($t0)
 	
-	sw $t1, 8116($t0)
-	sw $t1, 8136($t0)
+	sw $t1, 632($t0)
+	sw $t1, 652($t0)
 	
 	jr $ra
 
 # draws left border
 UPDATE_SHIP_LEFT_HELPER:
-	sw $t1, 7484($t0)
+	sw $t1, 0($t0)
 	
-	sw $t1, 7608($t0)
+	sw $t1, 124($t0)
 
-	sw $t1, 7732($t0)
+	sw $t1, 248($t0)
 	
-	sw $t1, 7860($t0)
+	sw $t1, 376($t0)
 	
-	sw $t1, 7988($t0)
-	sw $t1, 8004($t0)
+	sw $t1, 504($t0)
+	sw $t1, 520($t0)
 	
-	sw $t1, 8116($t0)
-	sw $t1, 8136($t0)
+	sw $t1, 632($t0)
+	sw $t1, 652($t0)
 	
 	jr $ra
 	
 # draws left border
 BOOSTER_UPDATE_SHIP_LEFT_HELPER:
-	sw $t1, 7484($t0)
-	sw $t1, 7488($t0)
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
 	
-	sw $t1, 7608($t0)
-	sw $t1, 7612($t0)
+	sw $t1, 124($t0)
+	sw $t1, 128($t0)
 
-	sw $t1, 7732($t0)
-	sw $t1, 7736($t0)
+	sw $t1, 248($t0)
+	sw $t1, 252($t0)
 	
-	sw $t1, 7860($t0)
-	sw $t1, 7864($t0)
+	sw $t1, 376($t0)
+	sw $t1, 380($t0)
 	
-	sw $t1, 7988($t0)
-	sw $t1, 7992($t0)
-	sw $t1, 8004($t0)
-	sw $t1, 8008($t0)
+	sw $t1, 504($t0)
+	sw $t1, 508($t0)
+	sw $t1, 520($t0)
+	sw $t1, 524($t0)
 	
-	sw $t1, 8116($t0)
-	sw $t1, 8136($t0)
+	sw $t1, 632($t0)
+	sw $t1, 652($t0)
 	
 	jr $ra
 
 # draws right border	
 UPDATE_SHIP_RIGHT_HELPER:
-	sw $t1, 7488($t0)
+	sw $t1, 4($t0)
 	
-	sw $t1, 7620($t0)
+	sw $t1, 136($t0)
 
-	sw $t1, 7752($t0)
+	sw $t1, 268($t0)
 
-	sw $t1, 7880($t0)
+	sw $t1, 396($t0)
 	
-	sw $t1, 7992($t0)
-	sw $t1, 8008($t0)
+	sw $t1, 508($t0)
+	sw $t1, 524($t0)
 	
-	sw $t1, 8116($t0)
-	sw $t1, 8136($t0)
+	sw $t1, 632($t0)
+	sw $t1, 652($t0)
 	
 	jr $ra
 	
 # draws right border	
 BOOSTER_UPDATE_SHIP_RIGHT_HELPER:
-	sw $t1, 7484($t0)
-	sw $t1, 7488($t0)
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
 
-	sw $t1, 7616($t0)
-	sw $t1, 7620($t0)
+	sw $t1, 132($t0)
+	sw $t1, 136($t0)
 
-	sw $t1, 7748($t0)
-	sw $t1, 7752($t0)
+	sw $t1, 264($t0)
+	sw $t1, 268($t0)
 
-	sw $t1, 7876($t0)
-	sw $t1, 7880($t0)
+	sw $t1, 392($t0)
+	sw $t1, 396($t0)
 	
-	sw $t1, 7988($t0)
-	sw $t1, 7992($t0)
-	sw $t1, 8004($t0)
-	sw $t1, 8008($t0)
+	sw $t1, 504($t0)
+	sw $t1, 508($t0)
+	sw $t1, 520($t0)
+	sw $t1, 524($t0)
 	
-	sw $t1, 8116($t0)
-	sw $t1, 8136($t0)
+	sw $t1, 632($t0)
+	sw $t1, 652($t0)
 	
 	jr $ra
+
+######################################################################
+
+
+
+############################# ASTEROIDS ##############################
+
+GENERATE_ASTEROIDS:
+	beq $t9, ASTEROID_COUNT, main
+    	li $t0, BASE_ADDRESS
+    	
+    	jal GENERATE_RANDOMNESS
+    
+    	# update address and type in memory
+    	sw $t0, 0($t8)
+    	sw $t6, 0($t7)
+    
+    	# loop increment
+    	addi $t7, $t7, 4
+    	addi $t8, $t8, 4
+
+	addi $t9, $t9, 1
+	
+	j GENERATE_ASTEROIDS
+	
+GENERATE_RANDOMNESS:
+	# generate x_axis randomness
+    	li $v0, 42
+	li $a0, 0
+	li $a1, X_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t6, $a0
+    	addi $t6, $t6, 1
+    
+    	# update asteroid address horizontal
+    	li $t5, COLUMN
+    	mult $t6, $t5
+    	mflo $t6
+    	add $t0, $t0, $t6
+    
+    	# generate y_axis randomness
+	li $v0, 42
+	li $a0, 0
+	li $a1, Y_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t6, $a0
+    	addi $t6, $t6, 1 # fixed vertical offset
+    
+    	# update asteroid address vertical
+    	li $t5, ROW
+    	mult $t6, $t5
+    	mflo $t6
+    	sub $t0, $t0, $t6
+    	
+    	# generate random asteroid type
+    	li $v0, 42
+    	li $a0, 0
+    	li $a1, ASTEROID_TYPE_COUNT
+    	syscall
+    	move $t6, $a0
+    	subi $t6, $t6, 1
+    	
+    	jr $ra
+
+UPDATE_ASTEROIDS:
+
+	beq $t9, ASTEROID_COUNT, CHECK_INPUT
+    	lw $t0, 0($t8)
+    	
+    	#check if asteroid above the bitmap
+    	li $t6, TOP_ADDRESS
+    	blt $t0, $t6 UPDATE_ASTEROID_DRAWLESS
+    	
+    	#check if asteroid below the bitmap
+    	li $t6, BOTTOM_ADDRESS
+    	bgt $t0, $t6, LOOP_ASTEROID
+
+    	lw $t6, 0($t7)
+       	
+       	bltz $t6, UPDATE_BASIC_ASTEROID
+    	bgez $t6, UPDATE_COMPLEX_ASTEROID
+
+UPDATE_ASTEROID_DRAWLESS:
+	addi $t0, $t0, ROW
+	addi $t0, $t0, ROW #optional
+	
+	# update address in memory
+    	sw $t0, 0($t8)
+    
+	# loop increment
+    	addi $t7, $t7, 4
+    	addi $t8 $t8, 4
+
+	addi $t9, $t9, 1
+	
+	j UPDATE_ASTEROIDS
+
+LOOP_ASTEROID:
+	li $t0, BASE_ADDRESS
+	jal GENERATE_RANDOMNESS
+       	
+       	sw $t6, 0($t7)
+       	
+       	bltz $t6, UPDATE_BASIC_ASTEROID
+    	bgez $t6, UPDATE_COMPLEX_ASTEROID
+
+UPDATE_BASIC_ASTEROID:
+	li $t1, BLACK
+    	li $t2, BLACK
+    	jal DRAW_BASIC_ASTEROID
+    	
+    	addi $t0, $t0, ROW
+    	addi $t0, $t0, ROW #optional
+    	
+    	li $t1, GRAY
+    	li $t2, LIGHT_GRAY
+    	jal DRAW_BASIC_ASTEROID
+    
+	# update address in memory
+    	sw $t0, 0($t8)
+    
+	# loop increment
+    	addi $t7, $t7, 4
+    	addi $t8 $t8, 4
+
+	addi $t9, $t9, 1
+	
+	j UPDATE_ASTEROIDS
+
+UPDATE_COMPLEX_ASTEROID:
+    	li $t1, BLACK
+    	li $t2, BLACK
+    	jal DRAW_COMPLEX_ASTEROID
+    	
+    	addi $t0, $t0, ROW
+    	addi $t0, $t0, ROW #optional
+    	
+    	li $t1, BROWN
+    	li $t2, LIGHT_BROWN
+    	jal DRAW_COMPLEX_ASTEROID
+
+	# update address in memory
+    	sw $t0, 0($t8)
+    
+	# loop increment
+    	addi $t7, $t7, 4
+    	addi $t8 $t8, 4
+
+	addi $t9, $t9, 1
+	
+	j UPDATE_ASTEROIDS
+
 
 ######################################################################
 
@@ -297,12 +512,12 @@ UPDATE_SHIP_W:
 	j main
 	
 BOOSTER_UPDATE_SHIP_W:
-	#turn bottom border black
+	# turn bottom border black
 	li $t1, BLACK
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
-	subi $t0, $t0, 128
+	subi $t0, $t0, ROW
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
@@ -313,7 +528,7 @@ BOOSTER_UPDATE_SHIP_W:
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
-	subi $t0, $t0, 128
+	subi $t0, $t0, ROW
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
@@ -373,7 +588,7 @@ BOOSTER_UPDATE_SHIP_S:
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
-	subi $t0, $t0, 128
+	subi $t0, $t0, ROW
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
@@ -384,7 +599,7 @@ BOOSTER_UPDATE_SHIP_S:
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
-	addi $t0, $t0, 128
+	addi $t0, $t0, ROW
 	
 	jal UPDATE_SHIP_WS_HELPER
 	
@@ -404,7 +619,7 @@ A_KEYPRESS:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
-	li $t1, WIDTH
+	li $t1, ROW
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BITMAP_A_REMAINDER
@@ -416,7 +631,7 @@ BOOSTER_A_KEYPRESS:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
-	li $t1, WIDTH
+	li $t1, ROW
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BOOSTER_BITMAP_A_REMAINDER
@@ -468,7 +683,7 @@ D_KEYPRESS:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
-	li $t1, WIDTH
+	li $t1, ROW
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BITMAP_D_REMAINDER
@@ -480,7 +695,7 @@ BOOSTER_D_KEYPRESS:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
-	li $t1, WIDTH
+	li $t1, ROW
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BOOSTER_BITMAP_D_REMAINDER
@@ -535,7 +750,7 @@ P_KEYPRESS:
 	li $t1, SHIP_COLOUR
 	jal DRAW_SHIP_INIT
 	
-	#update ship address
+	#reset ship address
 	la $t1, SHIP_ADDRESS
 	sw $t0, 0($t1)
 	
@@ -543,6 +758,27 @@ P_KEYPRESS:
 	la $t0, LAST_KEYBOARD_INPUT
 	sw $zero, 0($t0)
 	
-	j main
+	#resetting asteroid locations
+	li $t9, 0
+	la $t8, ASTEROIDS
+	la $t7, ASTEROID_TYPES
+	j RESET_ASTEROIDS
+	
+RESET_ASTEROIDS:
+	beq $t9, ASTEROID_COUNT, SETUP
+	
+	lw $t0, 0($t8)
+
+	lw $t6, 0($t7)
+	
+	li $t1, BLACK
+	li $t2, BLACK
+	
+	bltzal $t6, DRAW_BASIC_ASTEROID
+	bgezal $t6, DRAW_COMPLEX_ASTEROID
+	
+	addi, $t8, $t8, 4
+	addi, $t7, $t7, 4
+	addi $t9, $t9, 1
 	
 ######################################################################
