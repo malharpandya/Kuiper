@@ -39,6 +39,7 @@
 .eqv BASE_ADDRESS 0x10008000
 .eqv TOP_ADDRESS 0x10007d00
 .eqv BOTTOM_ADDRESS 0x1000A080
+
 # Movement Related
 .eqv BITMAP_W_LIMIT 0x10008070
 .eqv BITMAP_S_LIMIT 0x10009d08
@@ -89,6 +90,9 @@
    	ASTEROID_COLORS: .word 0:2
 	BOOSTER_FLAG: .word 0
 	LAST_KEYBOARD_INPUT: .word 0
+	HEALTH: 20
+	GAME_OVER_ADDRESS: .word 0x10008000
+	
 
 .text
 
@@ -290,6 +294,304 @@ BOOSTER_UPDATE_SHIP_RIGHT_HELPER:
 	
 	jr $ra
 
+DRAW_GAME_OVER:
+	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
+	li $t1, 0xfdffbc # $t1 stores the yellow code
+	li $t2, 0xffeebb # $t2 stores the light peach code
+	li $t3, 0xffdcb8 # $t3 stores the peach code
+	li $t4, 0xffc1b6 # $t4 stores the pink code
+
+        # colour yellow section for GAME (first row)
+        # G
+        sw $t1, 2060($t0) 
+        sw $t1, 2064($t0)  
+	sw $t1, 2068($t0)  
+	sw $t1, 2072($t0)
+	
+	sw $t1, 2184($t0) 
+	sw $t1, 2204($t0) 
+	
+	# A
+        sw $t1, 2088($t0)
+	sw $t1, 2092($t0)
+	sw $t1, 2096($t0)
+	sw $t1, 2100($t0)
+	sw $t1, 2104($t0)
+	
+	sw $t1, 2216($t0)
+	sw $t1, 2232($t0)
+	
+	# M
+	sw $t1, 2116($t0)
+	sw $t1, 2120($t0)
+	sw $t1, 2136($t0)
+	sw $t1, 2140($t0)
+	sw $t1, 2244($t0)
+	sw $t1, 2252($t0)
+	sw $t1, 2260($t0)
+	sw $t1, 2268($t0)
+	
+	# E
+	sw $t1, 2152($t0)
+	sw $t1, 2156($t0)
+	sw $t1, 2160($t0)
+	sw $t1, 2164($t0)
+	sw $t1, 2168($t0)
+	
+	sw $t1, 2280($t0)
+
+	
+	# colour light peach section for GAME
+	# G
+	sw $t2, 2308($t0)
+	sw $t2, 2436($t0)
+	
+	# A
+	sw $t2, 2344($t0)
+	sw $t2, 2360($t0)
+	sw $t2, 2472($t0)
+	sw $t2, 2488($t0)
+	
+	# M
+	sw $t2, 2372($t0)
+	sw $t2, 2500($t0)
+	
+	sw $t2, 2384($t0)
+
+	sw $t2, 2396($t0)
+	sw $t2, 2524($t0)
+	
+	# E
+	sw $t2, 2408($t0)
+	sw $t2, 2536($t0)
+	
+	# colour peach section for GAME (first row)
+	# G
+	sw $t3, 2564($t0)
+	sw $t3, 2692($t0)
+	sw $t3, 2820($t0)
+	sw $t3, 2844($t0)
+	sw $t3, 2716($t0)
+	sw $t3, 2712($t0)
+	sw $t3, 2708($t0)
+	
+	# A
+	sw $t3, 2600($t0)
+	sw $t3, 2604($t0)
+	sw $t3, 2608($t0)
+	sw $t3, 2612($t0)
+	
+	sw $t3, 2728($t0)
+	sw $t3, 2856($t0)
+	
+	sw $t3, 2616($t0)
+	sw $t3, 2744($t0)
+	sw $t3, 2872($t0)
+	
+	# M
+	sw $t3, 2628($t0)
+	sw $t3, 2756($t0)
+	sw $t3, 2884($t0)
+		
+	sw $t3, 2652($t0)
+	sw $t3, 2780($t0)
+	sw $t3, 2908($t0)
+	
+	# E
+	sw $t3, 2664($t0)
+	sw $t3, 2668($t0)
+	sw $t3, 2672($t0)
+	sw $t3, 2676($t0)
+	
+	sw $t3, 2792($t0)
+	
+	sw $t3, 2920($t0)
+	
+	
+	# colour pink section for GAME
+	# G
+	sw $t4, 2952($t0)
+	sw $t4, 3084($t0)
+	
+	sw $t4, 3088($t0)
+	sw $t4, 3092($t0)
+	sw $t4, 3096($t0)
+	
+	sw $t4, 2972($t0)
+	
+	# A
+	sw $t4, 2984($t0)
+	sw $t4, 3112($t0)
+	
+	sw $t4, 3000($t0)
+	sw $t4, 3128($t0)
+	
+	# M
+	sw $t4, 3012($t0)
+	sw $t4, 3140($t0)
+	
+	sw $t4, 3036($t0)
+	sw $t4, 3164($t0)
+	
+	# E
+	sw $t4, 3048($t0)
+	sw $t4, 3176($t0)
+	
+	sw $t4, 3180($t0)
+	sw $t4, 3184($t0)
+	sw $t4, 3188($t0)
+	sw $t4, 3192($t0)
+	
+	
+	# colour pink section for OVER
+	
+	# O
+	sw $t4, 3464($t0)
+	sw $t4, 3468($t0)
+	sw $t4, 3472($t0)
+	sw $t4, 3476($t0)
+	sw $t4, 3480($t0)
+	
+	sw $t4, 3588($t0)
+	sw $t4, 3612($t0)
+	
+	
+	# V
+	sw $t4, 3496($t0)
+	sw $t4, 3512($t0)
+	
+	sw $t4, 3624($t0)
+	sw $t4, 3640($t0)
+	
+	
+	# E
+	sw $t4, 3524($t0)
+	sw $t4, 3528($t0)
+	sw $t4, 3532($t0)
+	sw $t4, 3536($t0)
+	sw $t4, 3540($t0)
+	
+	sw $t4, 3652($t0)
+	
+	
+	# R
+	sw $t4, 3552($t0)
+	sw $t4, 3556($t0)
+	sw $t4, 3560($t0)
+	sw $t4, 3564($t0)
+	sw $t4, 3568($t0)
+	
+	sw $t4, 3680($t0)
+	sw $t4, 3700($t0)
+	
+	
+	# colour peach section for OVER
+	# O
+	sw $t3, 3716($t0)
+	sw $t3, 3844($t0)
+	
+	sw $t3, 3740($t0)
+	sw $t3, 3868($t0)
+	
+	# V
+	sw $t3, 3752($t0)
+	sw $t3, 3880($t0)
+	
+	sw $t3, 3768($t0)
+	sw $t3, 3896($t0)
+	
+	
+	# E
+	sw $t3, 3780($t0)
+	sw $t3, 3908($t0)
+	
+	
+	# R
+	sw $t3, 3808($t0)
+	sw $t3, 3936($t0)
+	
+	sw $t3, 3828($t0)
+	sw $t3, 3956($t0)
+
+
+	# colour light peach section for OVER
+	# O
+	sw $t2, 3972($t0)
+	sw $t2, 4100($t0)
+	sw $t2, 4228($t0)
+	
+	sw $t2, 3996($t0)
+	sw $t2, 4124($t0)
+	sw $t2, 4252($t0)
+	
+	
+	# V
+	sw $t2, 4008($t0)
+	sw $t2, 4136($t0)
+	sw $t2, 4264($t0)
+	
+	sw $t2, 4024($t0)
+	sw $t2, 4152($t0)
+	sw $t2, 4280($t0)
+	
+	
+	# E
+	sw $t2, 4036($t0)
+	sw $t2, 4040($t0)
+	sw $t2, 4044($t0)
+	sw $t2, 4048($t0)
+	
+	sw $t2, 4164($t0)
+	sw $t2, 4292($t0)
+	
+	# R
+	sw $t2, 4064($t0)
+	sw $t2, 4068($t0)
+	sw $t2, 4072($t0)
+	sw $t2, 4076($t0)
+	sw $t2, 4080($t0)
+	
+	sw $t2, 4192($t0)
+	sw $t2, 4320($t0)
+	
+	sw $t2, 4212($t0)
+	sw $t2, 4340($t0)
+	
+	
+	# colour yellow section for OVER
+	# O
+	sw $t1, 4356($t0)
+	sw $t1, 4380($t0)
+	sw $t1, 4504($t0)
+	sw $t1, 4500($t0)
+	sw $t1, 4496($t0)
+	sw $t1, 4492($t0)
+	sw $t1, 4488($t0)
+	
+	# V
+	sw $t1, 4396($t0)
+	sw $t1, 4528($t0)
+	
+	sw $t1, 4404($t0)
+	
+	# E
+	sw $t1, 4420($t0)
+	sw $t1, 4548($t0)
+	
+	sw $t1, 4552($t0)
+	sw $t1, 4556($t0)
+	sw $t1, 4560($t0)
+	sw $t1, 4564($t0)
+	
+	# R
+	sw $t1, 4448($t0)
+	sw $t1, 4576($t0)
+	
+	sw $t1, 4468($t0)
+	sw $t1, 4596($t0)
+	
+	jr $ra
+
 ######################################################################
 
 
@@ -355,7 +657,7 @@ GENERATE_RANDOMNESS:
 
 UPDATE_ASTEROIDS:
 
-	beq $t9, ASTEROID_COUNT, CHECK_INPUT
+	beq $t9, ASTEROID_COUNT, CHECK_COLLISION
     	lw $t0, 0($t8)
     	
     	#check if asteroid above the bitmap
@@ -781,4 +1083,132 @@ RESET_ASTEROIDS:
 	addi, $t7, $t7, 4
 	addi $t9, $t9, 1
 	
+	j RESET_ASTEROIDS
+	
 ######################################################################
+
+
+
+############################# COLLISIONS #############################
+CHECK_COLLISION:
+	la $t8, SHIP_ADDRESS
+	lw $t7, 0($t8)
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 132
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	subi $t7, $t7, 504
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 128
+	lw $t6, 0($t7)
+	
+	jal CHECK_COLLISION_SIDE
+	
+	j CHECK_INPUT
+
+	
+CHECK_COLLISION_TOP:
+	beq $t6, LIGHT_GRAY, BASIC_COLLISION_TOP
+	beq $t6, GRAY, BASIC_COLLISION_TOP
+	
+	beq $t6, LIGHT_BROWN, COMPLEX_COLLISION_TOP
+	beq $t6, BROWN, COMPLEX_COLLISION_TOP
+	jr $ra
+	
+CHECK_COLLISION_SIDE:
+	beq $t6, LIGHT_GRAY, BASIC_COLLISION_SIDE
+	beq $t6, GRAY, BASIC_COLLISION_SIDE
+	
+	beq $t6, LIGHT_BROWN, COMPLEX_COLLISION_SIDE
+	beq $t6, BROWN, COMPLEX_COLLISION_SIDE
+	jr $ra
+		
+BASIC_COLLISION_TOP:
+	la $t8, HEALTH
+	lw $t7, 0($t8)
+	subi $t7, $t7, 5
+	sw $t7, 0($t8)
+	j CHECK_GAME_OVER
+	
+BASIC_COLLISION_SIDE:
+	la $t8, HEALTH
+	lw $t7, 0($t8)
+	subi $t7, $t7, 2
+	sw $t7, 0($t8)
+	j CHECK_GAME_OVER
+
+COMPLEX_COLLISION_TOP:
+	la $t8, HEALTH
+	lw $t7, 0($t8)
+	subi $t7, $t7, 10
+	sw $t7, 0($t8)
+	j CHECK_GAME_OVER
+	
+COMPLEX_COLLISION_SIDE:
+	la $t8, HEALTH
+	lw $t7, 0($t8)
+	subi $t7, $t7, 5
+	sw $t7, 0($t8)
+	j CHECK_GAME_OVER
+
+
+CHECK_GAME_OVER:
+	la $t8, HEALTH
+	lw $t7, 0($t8)
+	blez $t7, EXIT_GAME
+	j P_KEYPRESS
+	
+######################################################################			
+						
+EXIT_GAME:
+	jal DRAW_GAME_OVER
+	li $v0, 10 # terminate the game!
+	syscall
