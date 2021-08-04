@@ -6,29 +6,32 @@
 # Student: Yara Radwan, 1006280748, radwanya
 #
 # Bitmap Display Configuration:
-# -Unit width in pixels: 8 (update this as needed)
-# -Unit height in pixels: 8 (update this as needed)
-# -Display width in pixels: 256 (update this as needed)
-# -Display height in pixels: 512 (update this as needed)
+# -Unit width in pixels: 8 
+# -Unit height in pixels: 8
+# -Display width in pixels: 256
+# -Display height in pixels: 512
 # -Base Address for Display: 0x10008000 ($gp)
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# -Milestone 1/2/3 (choose the one thatapplies)
+# - Milestone 1
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
-# 1. (fillin the feature, if any)# 2. (fill in the feature, if any)
-# 3. (fill in the feature, if any)# ... (add more if necessary)
+# 1. smooth graphics
+# 2. grazing
+# 3. increasing difficulty
+# 4. tbd ...
 #
 # Link to video demonstration for final submission:
-# -(insert YouTube / MyMedia / other URL here). Make sure we can view it!
+# - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
 #
 # Are you OK with us sharing the video with people outside course staff?
-# -yes / no/ yes, and please share this project githublink as well!
+# - no
 #
 # Any additional information that the TA needs to know:
-# -(write here, if any)
+# - We decided to make this game a vertical shooter based on our personal taste in 
+# - f.p.s games.
 ######################################################################
 
 # DECLARING CONSTANTS
@@ -82,6 +85,9 @@
 .eqv SALMON 0xffdcb8
 .eqv PINK 0xffc1b6
 
+# Health related
+.eqv HEALTH_INIT 20
+
 .data
 	REFRESH_RATE: INIT_REFRESH_RATE
 	SHIP_ADDRESS: .word RESET_ADDRESS
@@ -90,8 +96,8 @@
    	ASTEROID_COLORS: .word 0:2
 	BOOSTER_FLAG: .word 0
 	LAST_KEYBOARD_INPUT: .word 0
-	HEALTH: 20
-	GAME_OVER_ADDRESS: .word 0x10008000
+	HEALTH: HEALTH_INIT
+	GAME_OVER_ADDRESS: .word BASE_ADDRESS
 	
 
 .text
@@ -295,12 +301,6 @@ BOOSTER_UPDATE_SHIP_RIGHT_HELPER:
 	jr $ra
 
 DRAW_GAME_OVER:
-	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
-	li $t1, 0xfdffbc # $t1 stores the yellow code
-	li $t2, 0xffeebb # $t2 stores the light peach code
-	li $t3, 0xffdcb8 # $t3 stores the peach code
-	li $t4, 0xffc1b6 # $t4 stores the pink code
-
         # colour yellow section for GAME (first row)
         # G
         sw $t1, 2060($t0) 
@@ -1092,68 +1092,111 @@ RESET_ASTEROIDS:
 ############################# COLLISIONS #############################
 CHECK_COLLISION:
 	la $t8, SHIP_ADDRESS
+	
+	# Check first row
 	lw $t7, 0($t8)
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_TOP
 	
 	addi $t7, $t7, 4
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_TOP
 	
+	# Check second row
 	addi $t7, $t7, 132
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_SIDE
 	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_SIDE
+	
+	# Check third row
+	addi $t7, $t7, 124
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_SIDE
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_SIDE
+	
+	# Check fourth row
 	addi $t7, $t7, 128
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_SIDE
 	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	subi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_SIDE
+	
+	# Check fifth row
 	addi $t7, $t7, 128
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_SIDE
 	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 12
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_TOP
+	
+	addi $t7, $t7, 4
+	lw $t6, 0($t7)
+	jal CHECK_COLLISION_SIDE
+	
+	# Check sixth row
 	addi $t7, $t7, 128
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_SIDE
 	
-	addi $t7, $t7, 128
+	subi $t7, $t7, 20
 	lw $t6, 0($t7)
-	
 	jal CHECK_COLLISION_SIDE
 	
-	subi $t7, $t7, 504
-	lw $t6, 0($t7)
-	
-	jal CHECK_COLLISION_SIDE
-	
-	addi $t7, $t7, 128
-	lw $t6, 0($t7)
-	
-	jal CHECK_COLLISION_SIDE
-	
-	addi $t7, $t7, 128
-	lw $t6, 0($t7)
-	
-	jal CHECK_COLLISION_SIDE
-	
-	addi $t7, $t7, 128
-	lw $t6, 0($t7)
-	
-	jal CHECK_COLLISION_SIDE
-	
-	addi $t7, $t7, 128
-	lw $t6, 0($t7)
-	
-	jal CHECK_COLLISION_SIDE
-	
+	# If this line it reached, that means no collision has happened
 	j CHECK_INPUT
-
 	
 CHECK_COLLISION_TOP:
 	beq $t6, LIGHT_GRAY, BASIC_COLLISION_TOP
@@ -1209,6 +1252,12 @@ CHECK_GAME_OVER:
 ######################################################################			
 						
 EXIT_GAME:
+	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
+	li $t1, YELLOW 
+	li $t2, PEACH
+	li $t3, SALMON
+	li $t4, PINK
+	
 	jal DRAW_GAME_OVER
 	li $v0, 10 # terminate the game!
 	syscall
