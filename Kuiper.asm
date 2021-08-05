@@ -94,10 +94,9 @@
 	ASTEROIDS: .word 0:ASTEROID_COUNT
     	ASTEROID_TYPES: .word 0:ASTEROID_COUNT
    	ASTEROID_COLORS: .word 0:2
-	BOOSTER_FLAG: .word 0
+	SPEED_POWERUP_FLAG: .word 0
 	LAST_KEYBOARD_INPUT: .word 0
 	HEALTH: HEALTH_INIT
-	GAME_OVER_ADDRESS: .word BASE_ADDRESS
 	
 
 .text
@@ -761,7 +760,7 @@ KEYPRESS:
 	beq $t0, 0x61, A_KEYPRESS # ASCII code of 'a' is 0x61
 	beq $t0, 0x73, S_KEYPRESS # ASCII code of 's' is 0x73
 	beq $t0, 0x64, D_KEYPRESS # ASCII code of 'd' is 0x64
-	beq $t0, 0x70, P_KEYPRESS # ASCII code of 'p' is 0x70
+	beq $t0, 0x70, RESET # ASCII code of 'p' is 0x70
 	j main
 
 NO_KEYPRESS:
@@ -775,7 +774,7 @@ NO_KEYPRESS:
 	
 W_KEYPRESS:
 	# get status of powerup
-	la $t0, BOOSTER_FLAG
+	la $t0, SPEED_POWERUP_FLAG
 	lw $t0, 0($t0)
 	bgtz $t0 BOOSTER_W_KEYPRESS
 	
@@ -844,7 +843,7 @@ BOOSTER_UPDATE_SHIP_W:
 	
 S_KEYPRESS:
 	# get status of powerup
-	la $t0, BOOSTER_FLAG
+	la $t0, SPEED_POWERUP_FLAG
 	lw $t0, 0($t0)
 	bgtz $t0 BOOSTER_S_KEYPRESS
 	
@@ -913,7 +912,7 @@ BOOSTER_UPDATE_SHIP_S:
 	
 A_KEYPRESS:
 	# get status of powerup
-	la $t0, BOOSTER_FLAG
+	la $t0, SPEED_POWERUP_FLAG
 	lw $t0, 0($t0)
 	bgtz $t0 BOOSTER_A_KEYPRESS
 	
@@ -977,7 +976,7 @@ BOOSTER_UPDATE_SHIP_A:
 	
 D_KEYPRESS:
 	# get status of powerup
-	la $t0, BOOSTER_FLAG
+	la $t0, SPEED_POWERUP_FLAG
 	lw $t0, 0($t0)
 	bgtz $t0 BOOSTER_D_KEYPRESS
 	
@@ -1038,7 +1037,23 @@ BOOSTER_UPDATE_SHIP_D:
 	
 	j main
 
-P_KEYPRESS:
+RESET:
+
+	#Reset refresh rate
+	la $t0, REFRESH_RATE
+	li $t1, INIT_REFRESH_RATE
+	sw $t1, 0($t0)
+	
+	#Reset All Powerup Flags
+	la $t0, SPEED_POWERUP_FLAG
+	sw $zero, 0($t0)
+	
+	
+	#Reset Health
+	la $t0, HEALTH
+	li $t1, HEALTH_INIT
+	sw $t1, 0($t0)
+	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
@@ -1047,10 +1062,6 @@ P_KEYPRESS:
 	jal DRAW_SHIP_INIT
 	
 	li $t0, RESET_ADDRESS
-	
-	# draw ship at init point
-	li $t1, SHIP_COLOUR
-	jal DRAW_SHIP_INIT
 	
 	# reset ship address
 	la $t1, SHIP_ADDRESS
@@ -1246,14 +1257,40 @@ CHECK_GAME_OVER:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
 	blez $t7, END_GAME
-	j P_KEYPRESS
+	j COLLISION_RESET
+	
+COLLISION_RESET:
+
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	# erase ship
+	li $t1, BLACK
+	jal DRAW_SHIP_INIT
+	
+	li $t0, RESET_ADDRESS
+	
+	# reset ship address
+	la $t1, SHIP_ADDRESS
+	sw $t0, 0($t1)
+	
+	# update keyboard stack
+	la $t0, LAST_KEYBOARD_INPUT
+	sw $zero, 0($t0)
+	
+	# resetting asteroid locations
+	li $t9, 0
+	la $t8, ASTEROIDS
+	la $t7, ASTEROID_TYPES
+	j RESET_ASTEROIDS
 	
 ######################################################################	
+
+
 
 ############################# GAME OVER ##############################		
 						
 END_GAME:
-	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
+	li $t0, BASE_ADDRESS # $t0 stores the base address for display
 	li $t1, YELLOW 
 	li $t2, PEACH
 	li $t3, SALMON
@@ -1261,44 +1298,32 @@ END_GAME:
 	
 	jal DRAW_GAME_OVER # draw the game over test
 	
-	li $t9, 0
-	
 	j WAIT_FOR_USER_RESTART
 
 
 WAIT_FOR_USER_RESTART:
-	beq $t9, 1000, EXIT_GAME # if user doesn't restart game within a reasonable time, exit game
-	
+
+	li $v0, 32
+	li $a0, 100
 	li $t0, KEYBOARD_ADDRESS 
 	lw $t1, 0($t0)
 	beq $t1, 1, END_KEYPRESS # if keyboard input received, branch
-	
-	li $v0, 32
-	li $a0, 10000  # if not, wait ten seconds and enter next iteration
-	addi $t9, $t9, 1
+	j WAIT_FOR_USER_RESTART
 
 
 END_KEYPRESS:
 	# check if any valid key was pressed 
 	lw $t0, 4($t0)
-	
-	# update last key press
-	la $t1, LAST_KEYBOARD_INPUT
-	sw $t0, 0($t1)
 	beq $t0, 0x70, ERASE_GAME_OVER # if user pressed p, erase game over screen
 	
-	jr $ra
+	j WAIT_FOR_USER_RESTART
 
 ERASE_GAME_OVER:
-	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
+	li $t0, BASE_ADDRESS # $t0 stores the base address for display
 	li $t1, BLACK 
 	li $t2, BLACK
 	li $t3, BLACK
 	li $t4, BLACK
 	jal DRAW_GAME_OVER
 	# need to reset the asteroids and ship
-	jr $ra
-	
-EXIT_GAME:
-	li $v0, 10 # terminate the game!
-	syscall
+	j RESET
