@@ -40,11 +40,11 @@
 .eqv KEYBOARD_ADDRESS 0xffff0000
 .eqv RESET_ADDRESS 0x10009d3c
 .eqv BASE_ADDRESS 0x10008000
-.eqv TOP_ADDRESS 0x10007d00
+.eqv TOP_ADDRESS 0x10008300
 .eqv BOTTOM_ADDRESS 0x1000A080
 
 # Movement Related
-.eqv BITMAP_W_LIMIT 0x10008070
+.eqv BITMAP_W_LIMIT 0x100082f0
 .eqv BITMAP_S_LIMIT 0x10009d08
 .eqv BITMAP_A_REMAINDER 8
 .eqv BITMAP_D_REMAINDER 112
@@ -107,6 +107,16 @@
 ############################# INITIALIZE #############################	
 	
 SETUP:
+	#draw top bar
+	li $t9, 0
+	li $t0, BASE_ADDRESS
+	li $t1, PEACH
+	jal DRAW_TOP_BAR
+	
+	#draw health bar
+	
+	
+	
 	# draw the ship initially and jump to main
 	la $t0, SHIP_ADDRESS
 	lw, $t0, 0($t0)
@@ -118,6 +128,16 @@ SETUP:
     	la $t7, ASTEROID_TYPES
 	j GENERATE_ASTEROIDS
 		
+CREATE_TOP_BAR:
+	beq $t9, 160 JUMP_BACK
+	sw $t1, 0($t0)
+	addi $t0, $t0, 4
+	addi $t9 ,$t9, 1
+	j CREATE_TOP_BAR
+	
+JUMP_BACK:
+	jr $ra
+	
 # acts as main refresh loop
 main:
 	# generate delay
@@ -145,6 +165,15 @@ CHECK_INPUT:
 
 
 ########################## DRAWING SECTION ##########################
+
+#Draw the top bar
+DRAW_TOP_BAR:
+	beq $t9, 160, JUMP_BACK
+	sw $t1, 0($t0)
+	addi $t0, $t0, 4
+	addi $t9 ,$t9, 1
+	j CREATE_TOP_BAR
+
 
 # used to draw the whole ship initially
 DRAW_SHIP_INIT:
@@ -661,7 +690,7 @@ UPDATE_ASTEROIDS:
     	
     	#check if asteroid above the bitmap
     	li $t6, TOP_ADDRESS
-    	blt $t0, $t6 UPDATE_ASTEROID_DRAWLESS
+    	blt $t0, $t6, UPDATE_ASTEROID_DRAWLESS
     	
     	#check if asteroid below the bitmap
     	li $t6, BOTTOM_ADDRESS
