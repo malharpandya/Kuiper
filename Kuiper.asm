@@ -1042,25 +1042,25 @@ P_KEYPRESS:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
-	#erase ship
+	# erase ship
 	li $t1, BLACK
 	jal DRAW_SHIP_INIT
 	
 	li $t0, RESET_ADDRESS
 	
-	#draw ship at init point
+	# draw ship at init point
 	li $t1, SHIP_COLOUR
 	jal DRAW_SHIP_INIT
 	
-	#reset ship address
+	# reset ship address
 	la $t1, SHIP_ADDRESS
 	sw $t0, 0($t1)
 	
-	#update keyboard stack
+	# update keyboard stack
 	la $t0, LAST_KEYBOARD_INPUT
 	sw $zero, 0($t0)
 	
-	#resetting asteroid locations
+	# resetting asteroid locations
 	li $t9, 0
 	la $t8, ASTEROIDS
 	la $t7, ASTEROID_TYPES
@@ -1242,22 +1242,63 @@ COMPLEX_COLLISION_SIDE:
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 
-
 CHECK_GAME_OVER:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
-	blez $t7, EXIT_GAME
+	blez $t7, END_GAME
 	j P_KEYPRESS
 	
-######################################################################			
+######################################################################	
+
+############################# GAME OVER ##############################		
 						
-EXIT_GAME:
+END_GAME:
 	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
 	li $t1, YELLOW 
 	li $t2, PEACH
 	li $t3, SALMON
 	li $t4, PINK
 	
+	jal DRAW_GAME_OVER # draw the game over test
+	
+	li $t9, 0
+	
+	j WAIT_FOR_USER_RESTART
+
+
+WAIT_FOR_USER_RESTART:
+	beq $t9, 1000, EXIT_GAME # if user doesn't restart game within a reasonable time, exit game
+	
+	li $t0, KEYBOARD_ADDRESS 
+	lw $t1, 0($t0)
+	beq $t1, 1, END_KEYPRESS # if keyboard input received, branch
+	
+	li $v0, 32
+	li $a0, 10000  # if not, wait ten seconds and enter next iteration
+	addi $t9, $t9, 1
+
+
+END_KEYPRESS:
+	# check if any valid key was pressed 
+	lw $t0, 4($t0)
+	
+	# update last key press
+	la $t1, LAST_KEYBOARD_INPUT
+	sw $t0, 0($t1)
+	beq $t0, 0x70, ERASE_GAME_OVER # if user pressed p, erase game over screen
+	
+	jr $ra
+
+ERASE_GAME_OVER:
+	lw $t0, GAME_OVER_ADDRESS # $t0 stores the base address for display
+	li $t1, BLACK 
+	li $t2, BLACK
+	li $t3, BLACK
+	li $t4, BLACK
 	jal DRAW_GAME_OVER
+	# need to reset the asteroids and ship
+	jr $ra
+	
+EXIT_GAME:
 	li $v0, 10 # terminate the game!
 	syscall
