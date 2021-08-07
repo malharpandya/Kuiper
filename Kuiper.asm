@@ -21,7 +21,8 @@
 # 1. smooth graphics
 # 2. grazing
 # 3. increasing difficulty
-# 4. tbd ...
+# 4. sound
+# 5. power-ups
 #
 # Link to video demonstration for final submission:
 # - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
@@ -63,6 +64,7 @@
 
 #Game constants
 .eqv INIT_REFRESH_RATE 50
+.eqv COLLISION_DELAY 100
 .eqv ASTEROID_COUNT 10 #changeable
 .eqv ASTEROID_TYPE_COUNT 2
 
@@ -70,6 +72,9 @@
 .eqv SHIP_COLOUR 0x7daffa # light blue
 .eqv BLACK 0x000000 # for redrawing
 .eqv WHITE 0xffffff # for background
+.eqv RED 0xff0000 # for collision
+.eqv GREEN 0x00ff00 #for health bar
+.eqv ORANGE 0xff7600 #for collision
 
 # Basic Asteroid Colours
 .eqv LIGHT_GRAY, 0x9e9e9e
@@ -90,10 +95,12 @@
 
 .data
 	REFRESH_RATE: INIT_REFRESH_RATE
-	SHIP_ADDRESS: .word RESET_ADDRESS
-	ASTEROIDS: .word 0:ASTEROID_COUNT
+	SHIP_ADDRESS: .word RESET_ADDRESS #address
+	ASTEROIDS: .word 0:ASTEROID_COUNT #array of pointers
     	ASTEROID_TYPES: .word 0:ASTEROID_COUNT
    	ASTEROID_COLORS: .word 0:2
+   	SPEED_POWERUP: .word 0 #address
+   	HEALTH_POWERUP: .word 0 #address
 	SPEED_POWERUP_FLAG: .word 0
 	LAST_KEYBOARD_INPUT: .word 0
 	HEALTH: HEALTH_INIT
@@ -105,18 +112,16 @@
 	
 	
 ############################# INITIALIZE #############################	
-	
-SETUP:
-	#draw top bar
+
+INIT_HEALTH_BAR:
+	#draw health bar
 	li $t9, 0
 	li $t0, BASE_ADDRESS
-	li $t1, PEACH
-	jal DRAW_TOP_BAR
-	
-	#draw health bar
-	
-	
-	
+	li $t1, GREEN
+	jal DRAW_HEALTH_BAR
+	j SETUP
+
+SETUP:
 	# draw the ship initially and jump to main
 	la $t0, SHIP_ADDRESS
 	lw, $t0, 0($t0)
@@ -127,13 +132,6 @@ SETUP:
     	la $t8, ASTEROIDS
     	la $t7, ASTEROID_TYPES
 	j GENERATE_ASTEROIDS
-		
-CREATE_TOP_BAR:
-	beq $t9, 160 JUMP_BACK
-	sw $t1, 0($t0)
-	addi $t0, $t0, 4
-	addi $t9 ,$t9, 1
-	j CREATE_TOP_BAR
 	
 JUMP_BACK:
 	jr $ra
@@ -167,14 +165,20 @@ CHECK_INPUT:
 ########################## DRAWING SECTION ##########################
 
 #Draw the top bar
-DRAW_TOP_BAR:
-	beq $t9, 160, JUMP_BACK
-	sw $t1, 0($t0)
+DRAW_HEALTH_BAR:
+	beq $t9, 20, JUMP_BACK
+	sw $t1, 132($t0)
 	addi $t0, $t0, 4
 	addi $t9 ,$t9, 1
-	j CREATE_TOP_BAR
-
-
+	j DRAW_HEALTH_BAR
+	
+DRAW_COLLISION_HEALTH_UPDATE:
+	beq $t9, $t2, JUMP_BACK
+	sw $t1, 208($t0)
+	subi $t0, $t0, 4
+	addi $t9, $t9, 1
+	j DRAW_COLLISION_HEALTH_UPDATE
+	
 # used to draw the whole ship initially
 DRAW_SHIP_INIT:
 	sw $t1, 0($t0)
@@ -1083,6 +1087,12 @@ RESET:
 	li $t1, HEALTH_INIT
 	sw $t1, 0($t0)
 	
+	#redraw health bar
+	li $t9, 0
+	li $t0, BASE_ADDRESS
+	li $t1, GREEN
+	jal DRAW_HEALTH_BAR
+	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
@@ -1258,6 +1268,21 @@ BASIC_COLLISION_TOP:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
 	subi $t7, $t7, 5
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	
+	#draw ship red to indicate collision
+	li $t1, RED
+	jal DRAW_SHIP_INIT
+	
+	li $v0, 32
+	li $a0, COLLISION_DELAY
+	syscall
+	
+	# erase ship
+	li $t1, BLACK
+	jal DRAW_SHIP_INIT
+	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 	
@@ -1265,6 +1290,22 @@ BASIC_COLLISION_SIDE:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
 	subi $t7, $t7, 2
+	
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	
+	#draw ship red to indicate collision
+	li $t1, ORANGE
+	jal DRAW_SHIP_INIT
+	
+	li $v0, 32
+	li $a0, COLLISION_DELAY
+	syscall
+	
+	# erase ship
+	li $t1, BLACK
+	jal DRAW_SHIP_INIT
+	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 
@@ -1272,6 +1313,22 @@ COMPLEX_COLLISION_TOP:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
 	subi $t7, $t7, 10
+	
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	
+	#draw ship red to indicate collision
+	li $t1, RED
+	jal DRAW_SHIP_INIT
+	
+	li $v0, 32
+	li $a0, COLLISION_DELAY
+	syscall
+	
+	# erase ship
+	li $t1, BLACK
+	jal DRAW_SHIP_INIT
+	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 	
@@ -1279,6 +1336,22 @@ COMPLEX_COLLISION_SIDE:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
 	subi $t7, $t7, 5
+	
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	
+	#draw ship red to indicate collision
+	li $t1, ORANGE
+	jal DRAW_SHIP_INIT
+	
+	li $v0, 32
+	li $a0, COLLISION_DELAY
+	syscall
+	
+	# erase ship
+	li $t1, BLACK
+	jal DRAW_SHIP_INIT
+	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 
@@ -1289,12 +1362,8 @@ CHECK_GAME_OVER:
 	j COLLISION_RESET
 	
 COLLISION_RESET:
-
-	la $t0, SHIP_ADDRESS
-	lw $t0, 0($t0)
-	# erase ship
-	li $t1, BLACK
-	jal DRAW_SHIP_INIT
+	
+	jal UPDATE_HEALTH_BAR_COLLISION
 	
 	li $t0, RESET_ADDRESS
 	
@@ -1312,6 +1381,18 @@ COLLISION_RESET:
 	la $t7, ASTEROID_TYPES
 	j RESET_ASTEROIDS
 	
+	
+	
+UPDATE_HEALTH_BAR_COLLISION:
+	la $t0, HEALTH
+	lw $t0, 0($t0)
+	li $t2, HEALTH_INIT
+	sub $t2, $t2, $t0
+	li $t9, 0
+	li $t0, BASE_ADDRESS
+	li $t1, RED
+	j DRAW_COLLISION_HEALTH_UPDATE
+	
 ######################################################################	
 
 
@@ -1319,6 +1400,9 @@ COLLISION_RESET:
 ############################# GAME OVER ##############################		
 						
 END_GAME:
+	la $t0, HEALTH
+	sw $zero, 0($t0)
+	jal UPDATE_HEALTH_BAR_COLLISION
 	li $t0, BASE_ADDRESS # $t0 stores the base address for display
 	li $t1, YELLOW 
 	li $t2, PEACH
