@@ -14,15 +14,15 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1
+# - Milestone 1, 2, 3
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
 # 1. smooth graphics
 # 2. grazing
-# 3. increasing difficulty
-# 4. sound
-# 5. power-ups
+# 3. increasing difficulty (entire game gets faster every 4 seconds)
+# 4. sound effects on collision + game over
+# 5. power-ups (health and speed booster)
 #
 # Link to video demonstration for final submission:
 # - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
@@ -64,6 +64,8 @@
 
 #Game constants
 .eqv INIT_REFRESH_RATE 50
+.eqv REFRESH_RATE_REDUCTION 10
+.eqv REDUCTION_FREQUENCY 100
 .eqv COLLISION_DELAY 100
 .eqv ASTEROID_COUNT 10 #changeable
 .eqv ASTEROID_TYPE_COUNT 2
@@ -93,6 +95,17 @@
 # Health related
 .eqv HEALTH_INIT 20
 
+# Sound constants
+.eqv COLLISION_INSTRUMENT 5 # piano
+.eqv GAME_OVER_INSTRUMENT 16 # organ
+.eqv TOP_COLLISION_NOTE 71 # very high pitched beep
+.eqv SIDE_COLLISION_NOTE 69 # slighly high pitched beep
+.eqv PITCH_G 68 # G# / Gsharp
+.eqv PITCH_E 65 # E# / Esharp
+.eqv PITCH_C 58 # C
+.eqv VOLUME 50 # medium volume
+.eqv NOTE_LENGTH 600 # ms
+
 .data
 	REFRESH_RATE: INIT_REFRESH_RATE
 	SHIP_ADDRESS: .word RESET_ADDRESS #address
@@ -104,6 +117,7 @@
 	SPEED_POWERUP_FLAG: .word 0
 	LAST_KEYBOARD_INPUT: .word 0
 	HEALTH: HEALTH_INIT
+	FRAME_COUNTER: .word 0
 	
 
 .text
@@ -138,6 +152,13 @@ JUMP_BACK:
 	
 # acts as main refresh loop
 main:
+	la $t0, FRAME_COUNTER
+	lw $t1, 0($t0)
+	addi $t1, $t1, 1
+	sw $t1, 0($t0)
+	
+	jal UPDATE_REFRESH_RATE
+
 	# generate delay
 	la $t1, REFRESH_RATE
 	lw $t1, 0($t1)
@@ -150,6 +171,20 @@ main:
     	la $t7, ASTEROID_TYPES
 	j UPDATE_ASTEROIDS
 
+UPDATE_REFRESH_RATE:
+	li $t2, REDUCTION_FREQUENCY
+	div $t1, $t2
+	mfhi $t1
+	beqz $t1, REDUCE_FREQUENCY
+	jr $ra
+	
+REDUCE_FREQUENCY:
+	la $t0, REFRESH_RATE
+	lw $t1, 0($t0)
+	beqz $t1, JUMP_BACK
+	subi, $t1, $t1, 10
+	sw $t1, 0($t0)
+	jr $ra
     
 CHECK_INPUT:
 	# check for keyboard input and branch accordingly
@@ -1271,6 +1306,14 @@ BASIC_COLLISION_TOP:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
+	# play (top) collision sound
+	li $v0, 33
+	li $a0, TOP_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
 	#draw ship red to indicate collision
 	li $t1, RED
 	jal DRAW_SHIP_INIT
@@ -1293,6 +1336,14 @@ BASIC_COLLISION_SIDE:
 	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
+	
+	# play (side) collision sound
+	li $v0, 33
+	li $a0, SIDE_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT 
+	li $a3, VOLUME
+	syscall
 	
 	#draw ship red to indicate collision
 	li $t1, ORANGE
@@ -1317,6 +1368,14 @@ COMPLEX_COLLISION_TOP:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
+	# play (top) collision sound
+	li $v0, 33
+	li $a0, TOP_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT 
+	li $a3, VOLUME
+	syscall
+	
 	#draw ship red to indicate collision
 	li $t1, RED
 	jal DRAW_SHIP_INIT
@@ -1340,6 +1399,14 @@ COMPLEX_COLLISION_SIDE:
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
+	# play (side) collision sound
+	li $v0, 33
+	li $a0, SIDE_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
 	#draw ship red to indicate collision
 	li $t1, ORANGE
 	jal DRAW_SHIP_INIT
@@ -1362,7 +1429,6 @@ CHECK_GAME_OVER:
 	j COLLISION_RESET
 	
 COLLISION_RESET:
-	
 	jal UPDATE_HEALTH_BAR_COLLISION
 	
 	li $t0, RESET_ADDRESS
@@ -1380,8 +1446,6 @@ COLLISION_RESET:
 	la $t8, ASTEROIDS
 	la $t7, ASTEROID_TYPES
 	j RESET_ASTEROIDS
-	
-	
 	
 UPDATE_HEALTH_BAR_COLLISION:
 	la $t0, HEALTH
@@ -1410,6 +1474,28 @@ END_GAME:
 	li $t4, PINK
 	
 	jal DRAW_GAME_OVER # draw the game over test
+	
+	# play game over sound
+	li $v0, 33
+	li $a0, PITCH_G
+	li $a1, NOTE_LENGTH
+	li $a2, GAME_OVER_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
+	li $v0, 33
+	li $a0, PITCH_E
+	li $a1, NOTE_LENGTH
+	li $a2, GAME_OVER_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
+	li $v0, 33
+	li $a0, PITCH_C
+	li $a1, NOTE_LENGTH
+	li $a2, GAME_OVER_INSTRUMENT
+	li $a3, VOLUME
+	syscall
 	
 	j WAIT_FOR_USER_RESTART
 
