@@ -67,7 +67,6 @@
 .eqv INIT_REFRESH_RATE 60
 .eqv REFRESH_RATE_REDUCTION 5
 .eqv REDUCTION_FREQUENCY 250
-.eqv COLLISION_DELAY 100
 .eqv ASTEROID_COUNT 8
 .eqv ASTEROID_TYPE_COUNT 2
 .eqv Y_DELTA_POWERUP 100
@@ -1566,10 +1565,6 @@ BASIC_COLLISION_TOP:
 	li $a3, VOLUME
 	syscall
 	
-	li $v0, 32
-	li $a0, COLLISION_DELAY
-	syscall
-	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 	
@@ -1593,9 +1588,6 @@ BASIC_COLLISION_SIDE:
 	li $a3, VOLUME
 	syscall
 	
-	li $v0, 32
-	li $a0, COLLISION_DELAY
-	syscall
 	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
@@ -1620,9 +1612,6 @@ COMPLEX_COLLISION_TOP:
 	li $a3, VOLUME
 	syscall
 	
-	li $v0, 32
-	li $a0, COLLISION_DELAY
-	syscall
 	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
@@ -1646,11 +1635,7 @@ COMPLEX_COLLISION_SIDE:
 	li $a2, COLLISION_INSTRUMENT
 	li $a3, VOLUME
 	syscall
-	
-	li $v0, 32
-	li $a0, COLLISION_DELAY
-	syscall
-	
+
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 
@@ -1707,10 +1692,6 @@ HEALTH_POWERUP_COLLISION:
 	lw $t0, 0($t0)
 	li $t1, GREEN
 	jal DRAW_SHIP_INIT
-	
-	li $v0, 32
-	li $a0, COLLISION_DELAY
-	syscall
 	
 	#redraw the ship
 	la $t0, SHIP_ADDRESS
@@ -1792,10 +1773,6 @@ SPEED_POWERUP_COLLISION:
 	lw $t0, 0($t0)
 	li $t1, YELLOW
 	jal DRAW_SHIP_INIT
-	
-	li $v0, 32
-	li $a0, COLLISION_DELAY
-	syscall
 	
 	#redraw the ship
 	la $t0, SHIP_ADDRESS
