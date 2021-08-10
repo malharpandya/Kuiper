@@ -21,8 +21,7 @@
 # 1. smooth graphics
 # 2. grazing
 # 3. increasing difficulty
-# 4. sound
-# 5. power-ups
+# 4. tbd ...
 #
 # Link to video demonstration for final submission:
 # - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
@@ -41,17 +40,17 @@
 .eqv KEYBOARD_ADDRESS 0xffff0000
 .eqv RESET_ADDRESS 0x10009d3c
 .eqv BASE_ADDRESS 0x10008000
-.eqv TOP_ADDRESS 0x10008300
-.eqv BOTTOM_ADDRESS 0x1000A080
+.eqv TOP_ADDRESS 0x10007d00
+.eqv BOTTOM_ADDRESS 0x1000a080
 
 # Movement Related
-.eqv BITMAP_W_LIMIT 0x100082f0
+.eqv BITMAP_W_LIMIT 0x10008070
 .eqv BITMAP_S_LIMIT 0x10009d08
 .eqv BITMAP_A_REMAINDER 8
 .eqv BITMAP_D_REMAINDER 112
 
 .eqv BOOSTER_BITMAP_W_LIMIT 0x100080ec
-.eqv BOOSTER_BITMAP_S_LIMIT 0x10009e8c
+.eqv BOOSTER_BITMAP_S_LIMIT 0x10009c8c
 .eqv BOOSTER_BITMAP_A_REMAINDER 12
 .eqv BOOSTER_BITMAP_D_REMAINDER 108
 
@@ -61,19 +60,25 @@
 #Randomness
 .eqv X_RANDOMNESS_THRESHOLD 30
 .eqv Y_RANDOMNESS_THRESHOLD 128
+.eqv X_FIXED_DELTA 1
 
 #Game constants
-.eqv INIT_REFRESH_RATE 50
+.eqv INIT_REFRESH_RATE 60
+.eqv REFRESH_RATE_REDUCTION 5
+.eqv REDUCTION_FREQUENCY 250
 .eqv COLLISION_DELAY 100
-.eqv ASTEROID_COUNT 10 #changeable
+.eqv ASTEROID_COUNT 8
 .eqv ASTEROID_TYPE_COUNT 2
+.eqv Y_DELTA_POWERUP 100
 
 # Colours
 .eqv SHIP_COLOUR 0x7daffa # light blue
 .eqv BLACK 0x000000 # for redrawing
 .eqv WHITE 0xffffff # for background
 .eqv RED 0xff0000 # for collision
-.eqv GREEN 0x00ff00 #for health bar
+.eqv HEALTH_BAR_RED 0xff0001 # for health bar
+.eqv GREEN 0x00ff00 #for health powerup
+.eqv HEALTH_BAR_GREEN 0x00ff01 #for health bar
 .eqv ORANGE 0xff7600 #for collision
 
 # Basic Asteroid Colours
@@ -92,18 +97,22 @@
 
 # Health related
 .eqv HEALTH_INIT 20
+.eqv HEALTH_INCREASE 5 # 25 percent
+.eqv DAMAGE_SIDE_BASIC 1 # 5 percent
+.eqv DAMAGE_SIDE_COMPLEX 2 # 10 percent
+.eqv DAMAGE_TOP_BASIC 3 # 15 percent
+.eqv DAMAGE_TOP_COMPLEX 4 # 20 percent
 
 .data
 	REFRESH_RATE: INIT_REFRESH_RATE
 	SHIP_ADDRESS: .word RESET_ADDRESS #address
 	ASTEROIDS: .word 0:ASTEROID_COUNT #array of pointers
     	ASTEROID_TYPES: .word 0:ASTEROID_COUNT
-   	ASTEROID_COLORS: .word 0:2
-   	SPEED_POWERUP: .word 0 #address
-   	HEALTH_POWERUP: .word 0 #address
-	SPEED_POWERUP_FLAG: .word 0
+   	POWERUPS: .word 0:2 #address [health, speed]
+   	SPEED_POWERUP_FLAG: .word 0#flag
 	LAST_KEYBOARD_INPUT: .word 0
 	HEALTH: HEALTH_INIT
+	FRAME_COUNTER: .word 0
 	
 
 .text
@@ -113,14 +122,6 @@
 	
 ############################# INITIALIZE #############################	
 
-INIT_HEALTH_BAR:
-	#draw health bar
-	li $t9, 0
-	li $t0, BASE_ADDRESS
-	li $t1, GREEN
-	jal DRAW_HEALTH_BAR
-	j SETUP
-
 SETUP:
 	# draw the ship initially and jump to main
 	la $t0, SHIP_ADDRESS
@@ -128,28 +129,57 @@ SETUP:
 	li $t1, SHIP_COLOUR
 	jal DRAW_SHIP_INIT
 	
+	li $t9, 0
+	la $t1, POWERUPS
+	jal GENERATE_POWERUPS
+	
     	li $t9, 0 # counter
     	la $t8, ASTEROIDS
     	la $t7, ASTEROID_TYPES
-	j GENERATE_ASTEROIDS
+	jal GENERATE_ASTEROIDS
+	
+	j main
 	
 JUMP_BACK:
 	jr $ra
-	
+
 # acts as main refresh loop
 main:
+	la $t0, FRAME_COUNTER
+	lw $t1, 0($t0)
+	addi $t1, $t1, 1
+	sw $t1, 0($t0)
+	
+	jal UPDATE_REFRESH_RATE
+	
+	jal UPDATE_HEALTH_BAR
+	
 	# generate delay
 	la $t1, REFRESH_RATE
 	lw $t1, 0($t1)
 	li $v0, 32
 	move $a0, $t1
 	syscall
-    
+	
     	li $t9, 0 # counter
     	la $t8, ASTEROIDS
     	la $t7, ASTEROID_TYPES
 	j UPDATE_ASTEROIDS
-
+		
+UPDATE_REFRESH_RATE:
+	li $t2, REDUCTION_FREQUENCY
+	div $t1, $t2
+	mfhi $t1
+	beqz $t1, REDUCE_FREQUENCY
+	jr $ra
+	
+REDUCE_FREQUENCY:
+	la $t0, REFRESH_RATE
+	lw $t1, 0($t0)
+	beqz $t1, JUMP_BACK
+	subi, $t1, $t1, REFRESH_RATE_REDUCTION
+	sw $t1, 0($t0)
+	jr $ra
     
 CHECK_INPUT:
 	# check for keyboard input and branch accordingly
@@ -163,21 +193,47 @@ CHECK_INPUT:
 
 
 ########################## DRAWING SECTION ##########################
-
-#Draw the top bar
-DRAW_HEALTH_BAR:
-	beq $t9, 20, JUMP_BACK
+	
+DRAW_HEALTH:
+	beq $t9, $t7, DRAW_DAMAGE
+	sw $t2, 132($t0)
+	addi $t0, $t0, 4
+	addi $t9, $t9, 1
+	j DRAW_HEALTH
+	
+DRAW_DAMAGE:
+	beq $t9, HEALTH_INIT, JUMP_BACK
 	sw $t1, 132($t0)
 	addi $t0, $t0, 4
-	addi $t9 ,$t9, 1
-	j DRAW_HEALTH_BAR
-	
-DRAW_COLLISION_HEALTH_UPDATE:
-	beq $t9, $t2, JUMP_BACK
-	sw $t1, 208($t0)
-	subi $t0, $t0, 4
 	addi $t9, $t9, 1
-	j DRAW_COLLISION_HEALTH_UPDATE
+	j DRAW_DAMAGE
+	
+DRAW_HEALTH_POWERUP:
+	sw $t1, -132($t0)
+	sw $t1, -128($t0)
+	sw $t1, -124($t0)
+	
+	sw $t1, -4($t0)
+	sw $t1, 4($t0)
+	
+	sw $t1, 124($t0)
+	sw $t1, 128($t0)
+	sw $t1, 132($t0)
+	
+	jr $ra
+	
+DRAW_SPEED_POWERUP:
+	sw $t1, -128($t0)
+	sw $t1, -124($t0)
+	
+	sw $t1, -4($t0)
+	sw $t1, 0($t0)
+	sw $t1, 4($t0)
+	
+	sw $t2, 124($t0)
+	sw $t1, 128($t0)
+
+	jr $ra
 	
 # used to draw the whole ship initially
 DRAW_SHIP_INIT:
@@ -628,34 +684,58 @@ DRAW_GAME_OVER:
 
 
 
-############################# ASTEROIDS ##############################
+######################### ASTEROIDS/POWERUPS #########################
+GENERATE_POWERUPS:
 
-GENERATE_ASTEROIDS:
-	beq $t9, ASTEROID_COUNT, main
-    	li $t0, BASE_ADDRESS
-    	
-    	jal GENERATE_RANDOMNESS
-    
-    	# update address and type in memory
-    	sw $t0, 0($t8)
-    	sw $t6, 0($t7)
-    
-    	# loop increment
-    	addi $t7, $t7, 4
-    	addi $t8, $t8, 4
+	beq $t9, 2, JUMP_BACK
 
-	addi $t9, $t9, 1
-	
-	j GENERATE_ASTEROIDS
-	
-GENERATE_RANDOMNESS:
+	li $t0, BASE_ADDRESS
 	# generate x_axis randomness
     	li $v0, 42
 	li $a0, 0
 	li $a1, X_RANDOMNESS_THRESHOLD
     	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, X_FIXED_DELTA
+    
+    	# update asteroid address horizontal
+    	li $t3, COLUMN
+    	mult $t2, $t3
+    	mflo $t2
+    	add $t0, $t0, $t2
+    
+    	# generate y_axis randomness
+	li $v0, 42
+	li $a0, 0
+	li $a1, Y_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, Y_DELTA_POWERUP # fixed vertical offset
+    
+    	# update asteroid address vertical
+    	li $t3, ROW
+    	mult $t2, $t3
+    	mflo $t2
+    	sub $t0, $t0, $t2
+    	
+    	sw $t0, 0($t1)
+    	
+    	addi $t1, $t1, 4
+    	addi $t9, $t9, 1
+	j GENERATE_POWERUPS
+	
+GENERATE_ASTEROIDS:
+	beq $t9, ASTEROID_COUNT, JUMP_BACK
+	
+    	li $t0, BASE_ADDRESS
+    	
+    	# generate x_axis randomness
+    	li $v0, 42
+	li $a0, 0
+	li $a1, X_RANDOMNESS_THRESHOLD
+    	syscall
     	move $t6, $a0
-    	addi $t6, $t6, 1
+    	addi $t6, $t6, X_FIXED_DELTA
     
     	# update asteroid address horizontal
     	li $t5, COLUMN
@@ -684,12 +764,22 @@ GENERATE_RANDOMNESS:
     	syscall
     	move $t6, $a0
     	subi $t6, $t6, 1
-    	
-    	jr $ra
+    
+    	# update address and type in memory
+    	sw $t0, 0($t8)
+    	sw $t6, 0($t7)
+    
+    	# loop increment
+    	addi $t7, $t7, 4
+    	addi $t8, $t8, 4
+
+	addi $t9, $t9, 1
+	
+	j GENERATE_ASTEROIDS
 
 UPDATE_ASTEROIDS:
 
-	beq $t9, ASTEROID_COUNT, CHECK_COLLISION
+	beq $t9, ASTEROID_COUNT, UPDATE_POWERUPS_PARENT #CHECK_COLLISION
     	lw $t0, 0($t8)
     	
     	#check if asteroid above the bitmap
@@ -722,12 +812,55 @@ UPDATE_ASTEROID_DRAWLESS:
 
 LOOP_ASTEROID:
 	li $t0, BASE_ADDRESS
-	jal GENERATE_RANDOMNESS
+	
+	# generate x_axis randomness
+    	li $v0, 42
+	li $a0, 0
+	li $a1, X_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t6, $a0
+    	addi $t6, $t6, X_FIXED_DELTA
+    
+    	# update asteroid address horizontal
+    	li $t5, COLUMN
+    	mult $t6, $t5
+    	mflo $t6
+    	add $t0, $t0, $t6
+    
+    	# generate y_axis randomness
+	li $v0, 42
+	li $a0, 0
+	li $a1, Y_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t6, $a0
+    	addi $t6, $t6, 1 # fixed vertical offset
+    
+    	# update asteroid address vertical
+    	li $t5, ROW
+    	mult $t6, $t5
+    	mflo $t6
+    	sub $t0, $t0, $t6
+    	
+    	# generate random asteroid type
+    	li $v0, 42
+    	li $a0, 0
+    	li $a1, ASTEROID_TYPE_COUNT
+    	syscall
+    	move $t6, $a0
+    	subi $t6, $t6, 1
        	
        	sw $t6, 0($t7)
        	
-       	bltz $t6, UPDATE_BASIC_ASTEROID
-    	bgez $t6, UPDATE_COMPLEX_ASTEROID
+       	# update address in memory
+    	sw $t0, 0($t8)
+    	
+       	# loop increment
+    	addi $t7, $t7, 4
+    	addi $t8 $t8, 4
+
+	addi $t9, $t9, 1
+	
+	j UPDATE_ASTEROIDS
 
 UPDATE_BASIC_ASTEROID:
 	li $t1, BLACK
@@ -775,6 +908,104 @@ UPDATE_COMPLEX_ASTEROID:
 	
 	j UPDATE_ASTEROIDS
 
+UPDATE_POWERUPS_PARENT:
+	li $t9, 0
+	la $t8, POWERUPS
+	j UPDATE_POWERUPS
+
+UPDATE_POWERUPS:
+	beq $t9, 2, CHECK_COLLISION
+	
+	lw $t0, 0($t8)
+	
+	#check if powerup above the bitmap
+    	li $t7, TOP_ADDRESS
+    	blt $t0, $t7, UPDATE_POWERUP_DRAWLESS
+    	
+    	#check if powerup below the bitmap
+    	li $t7, BOTTOM_ADDRESS
+    	bgt $t0, $t7, LOOP_POWERUP
+    	
+    	beqz $t9, UPDATE_HEALTH_POWERUP
+    	
+    	j UPDATE_SPEED_POWERUP
+    	
+UPDATE_POWERUP_DRAWLESS:
+	addi $t0, $t0, ROW
+	sw $t0, 0($t8)
+	
+	addi $t8, $t8, 4
+	addi $t9, $t9, 1
+	j UPDATE_POWERUPS
+	
+LOOP_POWERUP:
+
+	li $t0, BASE_ADDRESS
+	# generate x_axis randomness
+    	li $v0, 42
+	li $a0, 0
+	li $a1, X_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, X_FIXED_DELTA
+    
+    	# update asteroid address horizontal
+    	li $t3, COLUMN
+    	mult $t2, $t3
+    	mflo $t2
+    	add $t0, $t0, $t2
+    
+    	# generate y_axis randomness
+	li $v0, 42
+	li $a0, 0
+	li $a1, Y_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, Y_DELTA_POWERUP # fixed vertical offset
+    
+    	# update asteroid address vertical
+    	li $t3, ROW
+    	mult $t2, $t3
+    	mflo $t2
+    	sub $t0, $t0, $t2
+    	
+    	sw $t0, 0($t8)
+    	
+    	addi $t8, $t8, 4
+    	addi $t9, $t9, 1
+	j UPDATE_POWERUPS
+	
+UPDATE_HEALTH_POWERUP:
+	li $t1 BLACK
+	jal DRAW_HEALTH_POWERUP
+	
+	addi $t0, $t0, ROW
+	
+	li $t1, GREEN
+	jal DRAW_HEALTH_POWERUP
+	
+	sw $t0, 0($t8)
+	
+	addi $t8, $t8, 4
+	addi $t9, $t9, 1
+	j UPDATE_POWERUPS
+	
+UPDATE_SPEED_POWERUP:
+	li $t1 BLACK
+	li $t2 BLACK
+	jal DRAW_SPEED_POWERUP
+	
+	addi $t0, $t0, ROW
+	
+	li $t1, YELLOW
+	li $t2, RED
+	jal DRAW_SPEED_POWERUP
+	
+	sw $t0, 0($t8)
+	
+	addi $t8, $t8, 4
+	addi $t9, $t9, 1
+	j UPDATE_POWERUPS
 
 ######################################################################
 
@@ -957,7 +1188,7 @@ A_KEYPRESS:
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BITMAP_A_REMAINDER
-	bne $t1, $t2, UPDATE_SHIP_A
+	bgt $t1, $t2, UPDATE_SHIP_A
 	j main
 	
 BOOSTER_A_KEYPRESS:
@@ -969,7 +1200,7 @@ BOOSTER_A_KEYPRESS:
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BOOSTER_BITMAP_A_REMAINDER
-	bne $t1, $t2, BOOSTER_UPDATE_SHIP_A
+	bgt $t1, $t2, BOOSTER_UPDATE_SHIP_A
 	j main
 
 UPDATE_SHIP_A:
@@ -1021,7 +1252,7 @@ D_KEYPRESS:
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BITMAP_D_REMAINDER
-	bne $t1, $t2, UPDATE_SHIP_D
+	blt $t1, $t2, UPDATE_SHIP_D
 	j main
 	
 BOOSTER_D_KEYPRESS:
@@ -1033,7 +1264,7 @@ BOOSTER_D_KEYPRESS:
 	div $t0, $t1
 	mfhi $t1
 	li $t2, BOOSTER_BITMAP_D_REMAINDER
-	bne $t1, $t2, BOOSTER_UPDATE_SHIP_D
+	blt $t1, $t2, BOOSTER_UPDATE_SHIP_D
 	j main
 	
 UPDATE_SHIP_D:
@@ -1087,11 +1318,14 @@ RESET:
 	li $t1, HEALTH_INIT
 	sw $t1, 0($t0)
 	
-	#redraw health bar
+	#draw health bar
+	la $t7, HEALTH
+	lw $t7, 0($t7)
 	li $t9, 0
 	li $t0, BASE_ADDRESS
-	li $t1, GREEN
-	jal DRAW_HEALTH_BAR
+	li $t1, HEALTH_BAR_RED
+	li $t2, HEALTH_BAR_GREEN
+	jal DRAW_HEALTH
 	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
@@ -1117,7 +1351,7 @@ RESET:
 	j RESET_ASTEROIDS
 	
 RESET_ASTEROIDS:
-	beq $t9, ASTEROID_COUNT, SETUP
+	beq $t9, ASTEROID_COUNT, RESET_POWERUPS_PARENT
 	
 	lw $t0, 0($t8)
 
@@ -1135,12 +1369,35 @@ RESET_ASTEROIDS:
 	
 	j RESET_ASTEROIDS
 	
+RESET_POWERUPS_PARENT:
+	li $t9, 0
+	la $t8, POWERUPS
+	j RESET_POWERUPS
+
+RESET_POWERUPS:
+	beq $t9, 2, SETUP
+	
+	lw $t0, 0($t8)
+	
+	li $t1, BLACK
+	li $t2, BLACK
+	
+	subi $t7, $t9, 1
+	bltzal $t7, DRAW_HEALTH_POWERUP
+	bgezal $t7, DRAW_SPEED_POWERUP
+	
+	addi, $t8, $t8, 4
+	addi $t9, $t9, 1
+	
+	j RESET_POWERUPS
+	
 ######################################################################
 
 
 
 ############################# COLLISIONS #############################
 CHECK_COLLISION:
+	
 	la $t8, SHIP_ADDRESS
 	
 	# Check first row
@@ -1254,6 +1511,10 @@ CHECK_COLLISION_TOP:
 	
 	beq $t6, LIGHT_BROWN, COMPLEX_COLLISION_TOP
 	beq $t6, BROWN, COMPLEX_COLLISION_TOP
+	
+	beq $t6, GREEN, HEALTH_POWERUP_COLLISION
+	beq $t6, RED, SPEED_POWERUP_COLLISION
+	beq $t6, YELLOW, SPEED_POWERUP_COLLISION
 	jr $ra
 	
 CHECK_COLLISION_SIDE:
@@ -1262,12 +1523,16 @@ CHECK_COLLISION_SIDE:
 	
 	beq $t6, LIGHT_BROWN, COMPLEX_COLLISION_SIDE
 	beq $t6, BROWN, COMPLEX_COLLISION_SIDE
+	
+	beq $t6, GREEN, HEALTH_POWERUP_COLLISION
+	beq $t6, RED, SPEED_POWERUP_COLLISION
+	beq $t6, YELLOW, SPEED_POWERUP_COLLISION
 	jr $ra
 		
 BASIC_COLLISION_TOP:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
-	subi $t7, $t7, 5
+	subi $t7, $t7, DAMAGE_TOP_BASIC
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
@@ -1278,10 +1543,6 @@ BASIC_COLLISION_TOP:
 	li $v0, 32
 	li $a0, COLLISION_DELAY
 	syscall
-	
-	# erase ship
-	li $t1, BLACK
-	jal DRAW_SHIP_INIT
 	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
@@ -1289,7 +1550,7 @@ BASIC_COLLISION_TOP:
 BASIC_COLLISION_SIDE:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
-	subi $t7, $t7, 2
+	subi $t7, $t7, DAMAGE_SIDE_BASIC
 	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
@@ -1302,17 +1563,13 @@ BASIC_COLLISION_SIDE:
 	li $a0, COLLISION_DELAY
 	syscall
 	
-	# erase ship
-	li $t1, BLACK
-	jal DRAW_SHIP_INIT
-	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 
 COMPLEX_COLLISION_TOP:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
-	subi $t7, $t7, 10
+	subi $t7, $t7, DAMAGE_TOP_COMPLEX
 	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
@@ -1325,17 +1582,13 @@ COMPLEX_COLLISION_TOP:
 	li $a0, COLLISION_DELAY
 	syscall
 	
-	# erase ship
-	li $t1, BLACK
-	jal DRAW_SHIP_INIT
-	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
 	
 COMPLEX_COLLISION_SIDE:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
-	subi $t7, $t7, 5
+	subi $t7, $t7, DAMAGE_SIDE_COMPLEX
 	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
@@ -1348,12 +1601,149 @@ COMPLEX_COLLISION_SIDE:
 	li $a0, COLLISION_DELAY
 	syscall
 	
-	# erase ship
-	li $t1, BLACK
-	jal DRAW_SHIP_INIT
-	
 	sw $t7, 0($t8)
 	j CHECK_GAME_OVER
+
+HEALTH_POWERUP_COLLISION:
+
+	#remove powerup
+	la $t9, POWERUPS
+	lw $t0, 0($t9)
+	li $t1, BLACK
+	jal DRAW_HEALTH_POWERUP
+	
+	#reset the powerup ramdomly
+	li $t0, BASE_ADDRESS
+	# generate x_axis randomness
+    	li $v0, 42
+	li $a0, 0
+	li $a1, X_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, X_FIXED_DELTA
+    
+    	# update powerup address horizontal
+    	li $t3, COLUMN
+    	mult $t2, $t3
+    	mflo $t2
+    	add $t0, $t0, $t2
+    
+    	# generate y_axis randomness
+	li $v0, 42
+	li $a0, 0
+	li $a1, Y_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, Y_DELTA_POWERUP # fixed vertical offset
+    
+    	# update powerup address vertical
+    	li $t3, ROW
+    	mult $t2, $t3
+    	mflo $t2
+    	sub $t0, $t0, $t2
+    	
+    	sw $t0, 0($t9)
+	
+	#redraw the ship
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	li $t1, GREEN
+	jal DRAW_SHIP_INIT
+	
+	li $v0, 32
+	li $a0, COLLISION_DELAY
+	syscall
+	
+	#redraw the ship
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	li $t1, SHIP_COLOUR
+	jal DRAW_SHIP_INIT
+	
+	#update the health
+	la $t1, HEALTH
+	lw $t0, 0($t1)
+	addi $t0, $t0, HEALTH_INCREASE
+	
+	bgt $t0, HEALTH_INIT, SET_HEALTH_MAX
+	
+	sw $t0, 0($t1)
+	
+	#update the health bar
+	
+	jal UPDATE_HEALTH_BAR
+	
+	j CHECK_INPUT
+	
+SET_HEALTH_MAX:
+	li $t0, HEALTH_INIT
+	sw $t0, 0($t1)
+	jal UPDATE_HEALTH_BAR
+	j CHECK_INPUT
+
+SPEED_POWERUP_COLLISION:
+	#remove powerup
+	la $t9, POWERUPS
+	lw $t0, 4($t9)
+	li $t1, BLACK
+	li $t2, BLACK
+	jal DRAW_SPEED_POWERUP
+	
+	#reset the powerup ramdomly
+	li $t0, BASE_ADDRESS
+	# generate x_axis randomness
+    	li $v0, 42
+	li $a0, 0
+	li $a1, X_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, X_FIXED_DELTA
+    
+    	# update powerup address horizontal
+    	li $t3, COLUMN
+    	mult $t2, $t3
+    	mflo $t2
+    	add $t0, $t0, $t2
+    
+    	# generate y_axis randomness
+	li $v0, 42
+	li $a0, 0
+	li $a1, Y_RANDOMNESS_THRESHOLD
+    	syscall
+    	move $t2, $a0
+    	addi $t2, $t2, Y_DELTA_POWERUP # fixed vertical offset
+    
+    	# update powerup address vertical
+    	li $t3, ROW
+    	mult $t2, $t3
+    	mflo $t2
+    	sub $t0, $t0, $t2
+    	
+    	sw $t0, 4($t9)
+    	
+    	#redraw the ship
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	li $t1, YELLOW
+	jal DRAW_SHIP_INIT
+	
+	li $v0, 32
+	li $a0, COLLISION_DELAY
+	syscall
+	
+	#redraw the ship
+	la $t0, SHIP_ADDRESS
+	lw $t0, 0($t0)
+	li $t1, SHIP_COLOUR
+	jal DRAW_SHIP_INIT
+	
+	#update the speed flag
+	la $t1, SPEED_POWERUP_FLAG
+	li $t0, 1
+	sw $t0, 0($t1)
+	
+	j CHECK_INPUT
+
 
 CHECK_GAME_OVER:
 	la $t8, HEALTH
@@ -1363,13 +1753,21 @@ CHECK_GAME_OVER:
 	
 COLLISION_RESET:
 	
-	jal UPDATE_HEALTH_BAR_COLLISION
+	# erase ship
+	li $t1, BLACK
+	jal DRAW_SHIP_INIT
+	
+	jal UPDATE_HEALTH_BAR
 	
 	li $t0, RESET_ADDRESS
 	
 	# reset ship address
 	la $t1, SHIP_ADDRESS
 	sw $t0, 0($t1)
+	
+	#Reset All Powerup Flags
+	la $t0, SPEED_POWERUP_FLAG
+	sw $zero, 0($t0)
 	
 	# update keyboard stack
 	la $t0, LAST_KEYBOARD_INPUT
@@ -1381,17 +1779,14 @@ COLLISION_RESET:
 	la $t7, ASTEROID_TYPES
 	j RESET_ASTEROIDS
 	
-	
-	
-UPDATE_HEALTH_BAR_COLLISION:
-	la $t0, HEALTH
-	lw $t0, 0($t0)
-	li $t2, HEALTH_INIT
-	sub $t2, $t2, $t0
+UPDATE_HEALTH_BAR:
+	la $t7, HEALTH
+	lw $t7, 0($t7)
 	li $t9, 0
 	li $t0, BASE_ADDRESS
-	li $t1, RED
-	j DRAW_COLLISION_HEALTH_UPDATE
+	li $t1, HEALTH_BAR_RED
+	li $t2, HEALTH_BAR_GREEN
+	j DRAW_HEALTH
 	
 ######################################################################	
 
@@ -1402,7 +1797,7 @@ UPDATE_HEALTH_BAR_COLLISION:
 END_GAME:
 	la $t0, HEALTH
 	sw $zero, 0($t0)
-	jal UPDATE_HEALTH_BAR_COLLISION
+	jal UPDATE_HEALTH_BAR
 	li $t0, BASE_ADDRESS # $t0 stores the base address for display
 	li $t1, YELLOW 
 	li $t2, PEACH
