@@ -14,14 +14,15 @@
 #
 # Which milestones have been reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1
+# - Milestone 1, 2, 3
 #
 # Which approved features have been implemented for milestone 3?
 # (See the assignment handout for the list of additional features)
 # 1. smooth graphics
 # 2. grazing
 # 3. increasing difficulty
-# 4. tbd ...
+# 4. power-ups
+# 5. sound effects on sprite collision + game over
 #
 # Link to video demonstration for final submission:
 # - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
@@ -102,6 +103,22 @@
 .eqv DAMAGE_SIDE_COMPLEX 2 # 10 percent
 .eqv DAMAGE_TOP_BASIC 3 # 15 percent
 .eqv DAMAGE_TOP_COMPLEX 4 # 20 percent
+
+# Sound constants
+.eqv COLLISION_INSTRUMENT 127 # low bass
+.eqv POWERUP_INSTRUMENT 120
+.eqv GAME_OVER_INSTRUMENT 58 # tuba
+.eqv TOP_COLLISION_NOTE 60 # low pitched beep
+.eqv SIDE_COLLISION_NOTE 65 # slighly higher pitched beep
+
+.eqv POWERUP_NOTE 71 # very high pitched beep
+
+.eqv PITCH_G 68 # G# / Gsharp
+.eqv PITCH_E 65 # E# / Esharp
+.eqv PITCH_C 58 # C
+.eqv VOLUME 50 # medium volume
+.eqv NOTE_LENGTH 400 # ms
+.eqv GAME_OVER_NOTE_LENGTH 600 # ms
 
 .data
 	REFRESH_RATE: INIT_REFRESH_RATE
@@ -1533,12 +1550,21 @@ BASIC_COLLISION_TOP:
 	la $t8, HEALTH
 	lw $t7, 0($t8)
 	subi $t7, $t7, DAMAGE_TOP_BASIC
+	
 	la $t0, SHIP_ADDRESS
 	lw $t0, 0($t0)
 	
 	#draw ship red to indicate collision
 	li $t1, RED
 	jal DRAW_SHIP_INIT
+		
+	# play (top) collision sound
+	li $v0, 33
+	li $a0, TOP_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT 
+	li $a3, VOLUME
+	syscall
 	
 	li $v0, 32
 	li $a0, COLLISION_DELAY
@@ -1559,6 +1585,14 @@ BASIC_COLLISION_SIDE:
 	li $t1, ORANGE
 	jal DRAW_SHIP_INIT
 	
+	# play (side) collision sound
+	li $v0, 33
+	li $a0, SIDE_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
 	li $v0, 32
 	li $a0, COLLISION_DELAY
 	syscall
@@ -1577,6 +1611,14 @@ COMPLEX_COLLISION_TOP:
 	#draw ship red to indicate collision
 	li $t1, RED
 	jal DRAW_SHIP_INIT
+	
+	# play (top) collision sound
+	li $v0, 33
+	li $a0, TOP_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT 
+	li $a3, VOLUME
+	syscall
 	
 	li $v0, 32
 	li $a0, COLLISION_DELAY
@@ -1597,6 +1639,14 @@ COMPLEX_COLLISION_SIDE:
 	li $t1, ORANGE
 	jal DRAW_SHIP_INIT
 	
+	# play (side) collision sound
+	li $v0, 33
+	li $a0, SIDE_COLLISION_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, COLLISION_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
 	li $v0, 32
 	li $a0, COLLISION_DELAY
 	syscall
@@ -1611,6 +1661,14 @@ HEALTH_POWERUP_COLLISION:
 	lw $t0, 0($t9)
 	li $t1, BLACK
 	jal DRAW_HEALTH_POWERUP
+	
+	# play powerup collision sound
+	li $v0, 33
+	li $a0, POWERUP_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, POWERUP_INSTRUMENT 
+	li $a3, VOLUME
+	syscall
 	
 	#reset the powerup ramdomly
 	li $t0, BASE_ADDRESS
@@ -1689,6 +1747,14 @@ SPEED_POWERUP_COLLISION:
 	li $t2, BLACK
 	jal DRAW_SPEED_POWERUP
 	
+	# play powerup collision sound
+	li $v0, 33
+	li $a0, POWERUP_NOTE
+	li $a1, NOTE_LENGTH
+	li $a2, POWERUP_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
 	#reset the powerup ramdomly
 	li $t0, BASE_ADDRESS
 	# generate x_axis randomness
@@ -1752,7 +1818,6 @@ CHECK_GAME_OVER:
 	j COLLISION_RESET
 	
 COLLISION_RESET:
-	
 	# erase ship
 	li $t1, BLACK
 	jal DRAW_SHIP_INIT
@@ -1806,11 +1871,32 @@ END_GAME:
 	
 	jal DRAW_GAME_OVER # draw the game over test
 	
+	# play game over sound
+	li $v0, 33
+	li $a0, PITCH_G
+	li $a1, GAME_OVER_NOTE_LENGTH
+	li $a2, GAME_OVER_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
+	li $v0, 33
+	li $a0, PITCH_E
+	li $a1, GAME_OVER_NOTE_LENGTH
+	li $a2, GAME_OVER_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
+	li $v0, 33
+	li $a0, PITCH_C
+	li $a1, GAME_OVER_NOTE_LENGTH
+	li $a2, GAME_OVER_INSTRUMENT
+	li $a3, VOLUME
+	syscall
+	
 	j WAIT_FOR_USER_RESTART
 
 
 WAIT_FOR_USER_RESTART:
-
 	li $v0, 32
 	li $a0, 100
 	li $t0, KEYBOARD_ADDRESS 
