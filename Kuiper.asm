@@ -25,7 +25,7 @@
 # 5. sound effects on sprite collision + game over
 #
 # Link to video demonstration for final submission:
-# - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
+# - https://youtu.be/t9_FH-fKG_s
 #
 # Are you OK with us sharing the video with people outside course staff?
 # - no
